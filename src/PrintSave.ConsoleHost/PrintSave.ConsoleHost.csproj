@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PrintSave.ConsoleHost</RootNamespace>
+    <AssemblyName>PrintSave.ConsoleHost</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+  </ItemGroup>
+</Project>
