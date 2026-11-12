@@ -27,6 +27,14 @@
                            RebootPrompt="no"
                            EndSessionMessage="yes" />
 
+    <!-- Remembered install path, so RemoveFolderEx can wipe the folder on uninstall.
+         RemoveFolder alone only deletes an empty dir, and the force-killed tray can
+         briefly hold its exe, leaving the folder behind. -->
+    <Property Id="INSTALLFOLDERSAVED">
+      <RegistrySearch Id="FindInstallFolder" Root="HKLM" Key="Software\PrintSave"
+                      Name="InstallFolder" Type="raw" />
+    </Property>
+
     <!-- Install locations. -->
     <StandardDirectory Id="ProgramFiles64Folder">
       <Directory Id="INSTALLFOLDER" Name="PrintSave" />
@@ -87,10 +95,20 @@
       </Component>
     </ComponentGroup>
 
+    <!-- On uninstall, recursively remove the install folder (program files only). -->
+    <ComponentGroup Id="Cleanup" Directory="INSTALLFOLDER">
+      <Component Id="CleanupInstallFolder" Guid="*">
+        <RegistryValue Root="HKLM" Key="Software\PrintSave" Name="InstallFolder"
+                       Type="string" Value="[INSTALLFOLDER]" KeyPath="yes" />
+        <util:RemoveFolderEx On="uninstall" Property="INSTALLFOLDERSAVED" />
+      </Component>
+    </ComponentGroup>
+
     <Feature Id="Main" Title="PrintSave" Level="1">
       <ComponentGroupRef Id="ServiceGroup" />
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="Shortcuts" />
+      <ComponentGroupRef Id="Cleanup" />
     </Feature>
 
     <!-- Launch the tray once as the installing user, enabling start-at-sign-in
@@ -101,8 +119,19 @@
                   Execute="immediate"
                   Impersonate="yes"
                   Return="asyncNoWait" />
+    <!-- Final sweep on full uninstall: the self-terminating tray can leave its (now-empty)
+         folder with a delete-pending handle, so RemoveFolder/RemoveFolderEx can't clear the
+         directory itself. After everything else is done, force-remove it. Guarded off major
+         upgrades so it never deletes a freshly-installed newer version. -->
+    <CustomAction Id="RemoveInstallDir"
+                  Directory="System64Folder"
+                  ExeCommand="&quot;[System64Folder]cmd.exe&quot; /c rd /s /q &quot;[INSTALLFOLDER]&quot;"
+                  Execute="immediate"
+                  Return="ignore" />
     <InstallExecuteSequence>
       <Custom Action="LaunchTray" After="InstallFinalize" Condition="NOT Installed" />
+      <Custom Action="RemoveInstallDir" After="InstallFinalize"
+              Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
     </InstallExecuteSequence>
 
     <!-- Minimal wizard: welcome + license + progress + finish. -->
