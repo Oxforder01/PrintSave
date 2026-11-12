@@ -23,9 +23,10 @@ namespace PrintSave.Core
         {
             DateTime stamp = (job.SubmittedUtc ?? job.CapturedUtc).ToLocalTime();
 
+            // Month folder in words (e.g. "November"), per user preference.
             string dir = Path.Combine(_rootDir,
                 stamp.ToString("yyyy", CultureInfo.InvariantCulture),
-                stamp.ToString("MM", CultureInfo.InvariantCulture),
+                stamp.ToString("MMMM", CultureInfo.InvariantCulture),
                 stamp.ToString("dd", CultureInfo.InvariantCulture));
             Directory.CreateDirectory(dir);
 
@@ -33,7 +34,7 @@ namespace PrintSave.Core
             job.Format = fmt.Name;
 
             string baseName = stamp.ToString("HHmmss", CultureInfo.InvariantCulture)
-                              + "_" + Sanitize(job.Document);
+                              + "_" + Sanitize(StripKnownExtension(job.Document));
             string dest = Resolve(dir, baseName, fmt.Extension);
 
             CopyShared(job.SpoolFilePath, dest);
@@ -54,6 +55,27 @@ namespace PrintSave.Core
             }
             // Extremely unlikely fallback.
             return Path.Combine(dir, baseName + "_" + Guid.NewGuid().ToString("N") + ext);
+        }
+
+        private static readonly string[] KnownDocExtensions =
+        {
+            ".docx", ".doc", ".xlsx", ".xls", ".pptx", ".ppt", ".pdf", ".txt", ".rtf",
+            ".odt", ".ods", ".odp", ".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tif", ".tiff",
+            ".html", ".htm", ".csv", ".xps", ".pub", ".vsdx", ".md"
+        };
+
+        /// <summary>Removes a trailing source extension (e.g. "Report.docx" -> "Report") to avoid doubled extensions.</summary>
+        public static string StripKnownExtension(string doc)
+        {
+            if (string.IsNullOrWhiteSpace(doc)) return doc;
+            string trimmed = doc.TrimEnd();
+            foreach (string ext in KnownDocExtensions)
+            {
+                if (trimmed.Length > ext.Length &&
+                    trimmed.EndsWith(ext, StringComparison.OrdinalIgnoreCase))
+                    return trimmed.Substring(0, trimmed.Length - ext.Length);
+            }
+            return doc;
         }
 
         public static string Sanitize(string name)
