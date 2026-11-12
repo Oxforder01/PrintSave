@@ -4,6 +4,7 @@ using System.Security.Principal;
 using System.Threading;
 using PrintSave.Core;
 using PrintSave.Core.Logging;
+using PrintSave.Index;
 
 namespace PrintSave.ConsoleHost
 {
@@ -13,15 +14,25 @@ namespace PrintSave.ConsoleHost
 
         private static int Main(string[] args)
         {
-            Console.WriteLine("PrintSave - Phase 1 capture (console host)");
-            Console.WriteLine("==========================================");
+            Console.WriteLine("PrintSave - capture console host");
+            Console.WriteLine("==================================");
 
             var opt = new CaptureOptions();
+            string search = null;
+            bool reindex = false, stats = false;
             for (int i = 0; i < args.Length; i++)
             {
                 if ((args[i] == "--root" || args[i] == "-r") && i + 1 < args.Length)
                     opt.RootDir = args[++i];
+                else if ((args[i] == "--search" || args[i] == "-s") && i + 1 < args.Length)
+                    search = args[++i];
+                else if (args[i] == "--list") search = "";
+                else if (args[i] == "--reindex") reindex = true;
+                else if (args[i] == "--stats") stats = true;
             }
+
+            if (search != null || reindex || stats)
+                return RunIndexCommand(opt.RootDir, search, reindex, stats);
 
             if (!IsElevated())
             {
@@ -45,6 +56,19 @@ namespace PrintSave.ConsoleHost
 
             var converter = new PrintSave.Conversion.XpsToPdfConverter();
             var engine = new CaptureEngine(opt, log, converter);
+            PrintIndex index = null;
+            try
+            {
+                index = new PrintIndex(opt.RootDir, log);
+                ReconcileResult rr = index.Reconcile();
+                log.Info(string.Format("Index: {0} documents (+{1} found on disk, -{2} missing).",
+                    index.Count(), rr.Added, rr.Removed));
+                engine.JobCaptured += job => index.Add(job);
+            }
+            catch (Exception ex)
+            {
+                log.Error("Index unavailable; capturing without it", ex);
+            }
             engine.JobCaptured += job =>
             {
                 ConsoleColor prev = Console.ForegroundColor;
@@ -77,7 +101,49 @@ namespace PrintSave.ConsoleHost
             Console.WriteLine();
             Console.WriteLine("Stopping...");
             engine.Stop();
+            if (index != null) index.Dispose();
             return 0;
+        }
+
+        private static int RunIndexCommand(string root, string search, bool reindex, bool stats)
+        {
+            try
+            {
+                using (var index = new PrintIndex(root))
+                {
+                    if (reindex)
+                    {
+                        ReconcileResult r = index.Reconcile();
+                        if (r.Error != null) { Console.WriteLine("Reindex failed: " + r.Error); return 1; }
+                        Console.WriteLine(string.Format("Reindexed: +{0} added, -{1} removed.", r.Added, r.Removed));
+                    }
+                    if (stats || reindex)
+                        Console.WriteLine(string.Format("{0} documents indexed in {1}", index.Count(), index.DatabasePath));
+                    if (search != null)
+                    {
+                        var hits = index.Search(new SearchQuery { Text = search, Limit = 50 });
+                        foreach (IndexedDocument d in hits)
+                        {
+                            Console.WriteLine(string.Format("{0:yyyy-MM-dd HH:mm}  {1,-30}  {2,-12} {3,-20} {4}",
+                                d.PrintedUtc.ToLocalTime(), Trunc(d.Document, 30), Trunc(d.User ?? "-", 12),
+                                Trunc(d.Printer ?? "-", 20), d.SavedPath));
+                        }
+                        Console.WriteLine(hits.Count + " result(s).");
+                    }
+                }
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Index error: " + ex.Message);
+                return 1;
+            }
+        }
+
+        private static string Trunc(string s, int n)
+        {
+            if (s == null) return "";
+            return s.Length <= n ? s : s.Substring(0, n - 1) + "~";
         }
 
         private static bool IsElevated()

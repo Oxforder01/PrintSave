@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PrintSave.Index</RootNamespace>
+    <AssemblyName>PrintSave.Index</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+    <!-- MIT. Bundled e_sqlite3 native build includes FTS5 for full-text search. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.11" />
+  </ItemGroup>
+</Project>

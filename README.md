@@ -26,15 +26,34 @@ these formats _your_ printers actually produce**, because that decides most of t
 
 ## Status
 
-Phase 0 — capture proof-of-concept. See [`phase0-spike/`](phase0-spike/).
+Capture, XPS→PDF conversion, the Windows service and the metadata index all work.
+Next up: the tray + settings UI.
 
 ## Build phases
 
-0. **Spike** — console app proves capture works and reports the spool format. ← you are here
-1. Service — auto-start background capture into date folders.
-2. Metadata + SQLite index.
-3. Conversion to PDF (EMF/XPS/PS).
-4. Resilience — persistent queue, re-apply printer flags, disk limits, logging.
-5. Tray + settings UI over a named pipe.
-6. Installer (one UAC prompt), service recovery, clean uninstall.
-7. Test matrix across Windows versions and printer types.
+0. ✅ **Spike** — proved capture works and reported the spool format (HP ENVY → XPS).
+1. ✅ **Capture engine** — `PrintSave.Core`, date folders (`2026\November\12\`).
+2. ✅ **Metadata + SQLite index** — `PrintSave.Index`, `{root}\.state\index.db` (FTS5 search).
+3. 🟡 **Conversion to PDF** — XPS done (`PrintSave.Conversion`); EMF/PostScript not yet.
+4. 🟡 **Resilience** — persistent dedupe, flag re-apply, logging done; disk-space warning not yet.
+5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
+6. ⬜ Tray + settings UI over a named pipe (search the index, open files).
+7. ⬜ Installer (one UAC prompt), clean uninstall; test matrix across Windows versions/printers.
+
+## Index
+
+Every captured document gets a row: document name, user, machine, printer, source/saved
+format, pages, print time, size. On each start the service reconciles the index with the
+folders: files saved before the index existed are added (date/time and name come from the
+path), and rows for files that were deleted are removed.
+
+Search from a terminal (no elevation needed to read your own archive):
+
+```
+PrintSave.ConsoleHost.exe --search "invoice smith"   # every word matches as a prefix
+PrintSave.ConsoleHost.exe --list                     # newest 50
+PrintSave.ConsoleHost.exe --reindex                  # rescan folders now
+PrintSave.ConsoleHost.exe --stats
+```
+
+Add `--root <folder>` to point at a different archive.

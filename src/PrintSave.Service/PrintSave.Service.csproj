@@ -11,5 +11,6 @@
   <ItemGroup>
     <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
     <ProjectReference Include="..\PrintSave.Conversion\PrintSave.Conversion.csproj" />
+    <ProjectReference Include="..\PrintSave.Index\PrintSave.Index.csproj" />
   </ItemGroup>
 </Project>
