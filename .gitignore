@@ -5,6 +5,7 @@
 bin/
 obj/
 out/
+artifacts/
 
 # Captured/converted document content (may contain real document content)
 phase0-spike/captured/

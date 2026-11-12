@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>PrintSave.Service</RootNamespace>
+    <AssemblyName>PrintSave.Service</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.ServiceProcess" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+    <ProjectReference Include="..\PrintSave.Conversion\PrintSave.Conversion.csproj" />
+  </ItemGroup>
+</Project>
