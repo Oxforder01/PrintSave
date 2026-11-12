@@ -17,10 +17,13 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of PrintSave is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Close a running tray before an uninstall/upgrade touches its files. -->
+    <!-- Close a running tray before an uninstall/upgrade touches its files. The tray is a
+         windowless NotifyIcon app, so a WM_CLOSE message has nothing to land on; force-kill
+         it (exit code 0) so uninstall/upgrade never leaves a zombie running from deleted files. -->
     <util:CloseApplication Id="CloseTray"
                            Target="PrintSave.Tray.exe"
                            CloseMessage="yes"
+                           TerminateProcess="0"
                            RebootPrompt="no"
                            EndSessionMessage="yes" />
 
