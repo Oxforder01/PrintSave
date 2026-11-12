@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>WinExe</OutputType>
+    <UseWindowsForms>true</UseWindowsForms>
+    <RootNamespace>PrintSave.Tray</RootNamespace>
+    <AssemblyName>PrintSave.Tray</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.ServiceProcess" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+    <ProjectReference Include="..\PrintSave.Index\PrintSave.Index.csproj" />
+  </ItemGroup>
+</Project>

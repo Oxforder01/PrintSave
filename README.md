@@ -26,8 +26,8 @@ these formats _your_ printers actually produce**, because that decides most of t
 
 ## Status
 
-Capture, XPS→PDF conversion, the Windows service and the metadata index all work.
-Next up: the tray + settings UI.
+Capture, XPS→PDF conversion, the Windows service, the metadata index and the tray UI all work.
+Next up: the MSI installer.
 
 ## Build phases
 
@@ -37,7 +37,7 @@ Next up: the tray + settings UI.
 3. 🟡 **Conversion to PDF** — XPS done (`PrintSave.Conversion`); EMF/PostScript not yet.
 4. 🟡 **Resilience** — persistent dedupe, flag re-apply, logging done; disk-space warning not yet.
 5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
-6. ⬜ Tray + settings UI over a named pipe (search the index, open files).
+6. ✅ **Tray + settings UI** — `PrintSave.Tray`: status menu, index search (open files), settings (folder-security toggle, start-at-sign-in).
 7. ⬜ Installer (one UAC prompt), clean uninstall; test matrix across Windows versions/printers.
 
 ## Index

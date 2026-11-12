@@ -3,5 +3,6 @@
   <Project Path="src/PrintSave.Conversion/PrintSave.Conversion.csproj" />
   <Project Path="src/PrintSave.Index/PrintSave.Index.csproj" />
   <Project Path="src/PrintSave.Service/PrintSave.Service.csproj" />
+  <Project Path="src/PrintSave.Tray/PrintSave.Tray.csproj" />
   <Project Path="src/PrintSave.ConsoleHost/PrintSave.ConsoleHost.csproj" />
 </Solution>
