@@ -16,17 +16,23 @@ if (-not $elev) {
     return
 }
 
+# Stop and remove any existing instance FIRST, so it releases its file locks before we publish.
+$svc = Get-Service $name -ErrorAction SilentlyContinue
+if ($svc) {
+    Write-Host "Stopping existing '$name' service..." -ForegroundColor Cyan
+    if ($svc.Status -ne 'Stopped') { Stop-Service $name -Force }
+    sc.exe delete $name | Out-Null
+    # Wait for the service process to actually exit and release artifacts\service\*.dll.
+    for ($i = 0; $i -lt 20; $i++) {
+        if (-not (Get-Process -Name 'PrintSave.Service' -ErrorAction SilentlyContinue)) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    Start-Sleep -Seconds 1
+}
+
 Write-Host "Publishing service to $out ..." -ForegroundColor Cyan
 & $dn publish $proj -c Release -o $out --nologo -v quiet
 if ($LASTEXITCODE -ne 0) { throw "publish failed" }
-
-# Remove any existing instance first.
-$svc = Get-Service $name -ErrorAction SilentlyContinue
-if ($svc) {
-    if ($svc.Status -ne 'Stopped') { Stop-Service $name -Force }
-    sc.exe delete $name | Out-Null
-    Start-Sleep -Seconds 1
-}
 
 # Ensure the Event Log source exists.
 try { if (-not [Diagnostics.EventLog]::SourceExists($name)) { New-EventLog -LogName Application -Source $name } } catch {}
