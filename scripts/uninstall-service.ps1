@@ -5,7 +5,11 @@ $repo = Split-Path -Parent $PSScriptRoot
 $exe  = Join-Path $repo 'artifacts\service\PrintSave.Service.exe'
 
 $elev = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $elev) { throw "Run this from an elevated (Administrator) PowerShell." }
+if (-not $elev) {
+    Write-Host "Not elevated - relaunching as Administrator..." -ForegroundColor Cyan
+    Start-Process powershell -Verb RunAs -ArgumentList ('-NoExit -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath)
+    return
+}
 
 $svc = Get-Service $name -ErrorAction SilentlyContinue
 if (-not $svc) { Write-Host "Service '$name' is not installed." -ForegroundColor Yellow; return }

@@ -9,7 +9,12 @@ $out  = Join-Path $repo 'artifacts\service'
 $exe  = Join-Path $out  'PrintSave.Service.exe'
 
 $elev = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
-if (-not $elev) { throw "Run this from an elevated (Administrator) PowerShell." }
+if (-not $elev) {
+    Write-Host "Not elevated - relaunching as Administrator..." -ForegroundColor Cyan
+    # Single-string ArgumentList so the quoted script path survives the space in the folder name.
+    Start-Process powershell -Verb RunAs -ArgumentList ('-NoExit -ExecutionPolicy Bypass -File "{0}"' -f $PSCommandPath)
+    return
+}
 
 Write-Host "Publishing service to $out ..." -ForegroundColor Cyan
 & $dn publish $proj -c Release -o $out --nologo -v quiet
