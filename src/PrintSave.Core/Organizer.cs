@@ -30,8 +30,8 @@ namespace PrintSave.Core
                 stamp.ToString("dd", CultureInfo.InvariantCulture));
             Directory.CreateDirectory(dir);
 
-            string baseName = stamp.ToString("HHmmss", CultureInfo.InvariantCulture)
-                              + "_" + Sanitize(StripKnownExtension(job.Document));
+            // File name is just the document name; same-day clashes get " 01", " 02", ...
+            string baseName = Sanitize(StripKnownExtension(job.Document));
             return Resolve(dir, baseName, extension);
         }
 
@@ -77,12 +77,12 @@ namespace PrintSave.Core
         {
             string candidate = Path.Combine(dir, baseName + ext);
             if (!File.Exists(candidate)) return candidate;
-            for (int i = 2; i < 10000; i++)
+            for (int i = 1; i < 10000; i++)
             {
-                candidate = Path.Combine(dir, baseName + "_" + i + ext);
+                candidate = Path.Combine(dir, baseName + " " + i.ToString("00", CultureInfo.InvariantCulture) + ext);
                 if (!File.Exists(candidate)) return candidate;
             }
-            return Path.Combine(dir, baseName + "_" + Guid.NewGuid().ToString("N") + ext);
+            return Path.Combine(dir, baseName + " " + Guid.NewGuid().ToString("N") + ext);
         }
 
         private static readonly string[] KnownDocExtensions =

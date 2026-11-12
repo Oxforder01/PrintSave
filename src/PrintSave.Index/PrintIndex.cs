@@ -280,19 +280,24 @@ ON CONFLICT(saved_path) DO UPDATE SET
                 if (DateTime.TryParseExact(yearDir + " " + monthDir + " " + dayDir, "yyyy MMMM dd",
                         CultureInfo.InvariantCulture, DateTimeStyles.None, out DateTime day))
                 {
-                    local = day;
                     if (name.Length > 7 && name[6] == '_' &&
                         DateTime.TryParseExact(name.Substring(0, 6), "HHmmss", CultureInfo.InvariantCulture,
                             DateTimeStyles.None, out DateTime t))
                     {
+                        // Legacy format: HHmmss_{doc}[_n]
                         local = day.Add(t.TimeOfDay);
                         doc = name.Substring(7);
+                        int us = name.LastIndexOf('_');
+                        if (us > 7 && int.TryParse(name.Substring(us + 1), NumberStyles.None, CultureInfo.InvariantCulture, out _)
+                            && File.Exists(Path.Combine(fi.DirectoryName, name.Substring(0, us) + fi.Extension)))
+                            doc = name.Substring(7, us - 7);
                     }
-                    // Organizer adds "_2", "_3"... on name clashes; drop it only when the original sits beside it.
-                    int us = name.LastIndexOf('_');
-                    if (us > 7 && int.TryParse(name.Substring(us + 1), NumberStyles.None, CultureInfo.InvariantCulture, out _)
-                        && File.Exists(Path.Combine(fi.DirectoryName, name.Substring(0, us) + fi.Extension)))
-                        doc = name.Substring(7, us - 7);
+                    else
+                    {
+                        // Current format: {doc}[ nn] — keep the file's time of day, drop a trailing " nn" clash suffix.
+                        local = day.Add(fi.LastWriteTime.TimeOfDay);
+                        doc = StripClashSuffix(name, fi);
+                    }
                 }
             }
             catch { }
@@ -311,6 +316,17 @@ ON CONFLICT(saved_path) DO UPDATE SET
                 SizeBytes = fi.Length,
                 Origin = "backfill"
             };
+        }
+
+        // "Report 01" -> "Report" when "Report.ext" sits beside it (Organizer's same-day clash suffix).
+        private static string StripClashSuffix(string name, FileInfo fi)
+        {
+            int sp = name.LastIndexOf(' ');
+            if (sp > 0 && sp + 1 < name.Length &&
+                int.TryParse(name.Substring(sp + 1), NumberStyles.None, CultureInfo.InvariantCulture, out _) &&
+                File.Exists(Path.Combine(fi.DirectoryName, name.Substring(0, sp) + fi.Extension)))
+                return name.Substring(0, sp);
+            return name;
         }
 
         // ---------------------------------------------------------------- reads
