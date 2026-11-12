@@ -50,3 +50,24 @@ if ($LASTEXITCODE -ne 0) { throw "wix build failed" }
 
 Write-Host "Built $out" -ForegroundColor Green
 Get-Item $out | Format-List Name, Length, LastWriteTime
+
+# Authenticode-sign the MSI if a code-signing cert is available. A self-signed 'CN=PrintSave'
+# cert is enough for your own machine + tamper-evidence; for public distribution replace it
+# with a CA-issued cert (same subject, or edit the lookup below). Unsigned is left as-is.
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert -ErrorAction SilentlyContinue |
+        Where-Object { $_.Subject -eq 'CN=PrintSave' } | Select-Object -First 1
+if ($cert) {
+    Write-Host "Signing with $($cert.Subject) [$($cert.Thumbprint)] ..." -ForegroundColor Cyan
+    $sig = Set-AuthenticodeSignature -FilePath $out -Certificate $cert -HashAlgorithm SHA256 `
+               -TimestampServer 'http://timestamp.digicert.com' -ErrorAction SilentlyContinue
+    if ($sig -and $sig.SignerCertificate) {
+        $trust = if ($sig.Status -eq 'Valid') { 'trusted' } else { 'untrusted root (self-signed; Valid on machines that trust the cert)' }
+        $ts = if ($sig.TimeStamperCertificate) { 'timestamped' } else { 'no timestamp' }
+        Write-Host "Signed by $($sig.SignerCertificate.Subject): $trust, $ts" -ForegroundColor Green
+    } else {
+        Write-Host "Signing failed: $(if($sig){$sig.Status}else{'no result'})" -ForegroundColor Yellow
+    }
+} else {
+    Write-Host "No 'CN=PrintSave' code-signing cert found; MSI left unsigned." -ForegroundColor Yellow
+    Write-Host "  Create one: New-SelfSignedCertificate -Type CodeSigningCert -Subject 'CN=PrintSave' -CertStoreLocation Cert:\CurrentUser\My"
+}
