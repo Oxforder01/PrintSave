@@ -17,15 +17,16 @@
     <MajorUpgrade DowngradeErrorMessage="A newer version of PrintSave is already installed." />
     <MediaTemplate EmbedCab="yes" />
 
-    <!-- Close a running tray before an uninstall/upgrade touches its files. The tray is a
-         windowless NotifyIcon app, so a WM_CLOSE message has nothing to land on; force-kill
-         it (exit code 0) so uninstall/upgrade never leaves a zombie running from deleted files. -->
-    <util:CloseApplication Id="CloseTray"
-                           Target="PrintSave.Tray.exe"
-                           CloseMessage="yes"
-                           TerminateProcess="0"
-                           RebootPrompt="no"
-                           EndSessionMessage="yes" />
+    <!-- The tray is a windowless NotifyIcon app, so Windows Installer's "close running apps"
+         request has no window to reach and it shows the "unable to close applications in use"
+         dialog. Instead, force-kill the tray ourselves right at the start of every run, before
+         InstallValidate does its file-in-use check (the ping gives the handle a moment to
+         release), so the dialog never appears on uninstall or upgrade. -->
+    <CustomAction Id="KillTray"
+                  Directory="System64Folder"
+                  ExeCommand="&quot;[System64Folder]cmd.exe&quot; /c taskkill /f /im PrintSave.Tray.exe &amp; ping -n 2 127.0.0.1 &gt;nul"
+                  Execute="immediate"
+                  Return="ignore" />
 
     <!-- Remembered install path, so RemoveFolderEx can wipe the folder on uninstall.
          RemoveFolder alone only deletes an empty dir, and the force-killed tray can
@@ -148,6 +149,7 @@
                   Execute="immediate"
                   Return="ignore" />
     <InstallExecuteSequence>
+      <Custom Action="KillTray" Before="InstallValidate" />
       <Custom Action="LaunchTray" After="InstallFinalize" Condition="NOT Installed" />
       <Custom Action="RemoveInstallDir" After="InstallFinalize"
               Condition="REMOVE=&quot;ALL&quot; AND NOT UPGRADINGPRODUCTCODE" />
