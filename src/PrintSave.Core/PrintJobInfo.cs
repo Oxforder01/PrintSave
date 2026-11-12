@@ -19,8 +19,14 @@ namespace PrintSave.Core
         /// <summary>Source spool file in the spooler directory.</summary>
         public string SpoolFilePath { get; set; }
 
-        /// <summary>Detected spool format name (XPS, EMF, PDF, ...).</summary>
+        /// <summary>Detected source spool format name (XPS, EMF, PDF, ...).</summary>
         public string Format { get; set; }
+
+        /// <summary>Format actually written to the archive (e.g. "PDF" after conversion, else same as Format).</summary>
+        public string SavedFormat { get; set; }
+
+        /// <summary>True if the spool data was converted (e.g. XPS-&gt;PDF) rather than saved raw.</summary>
+        public bool Converted { get; set; }
 
         /// <summary>Final saved path in the PrintSave archive.</summary>
         public string SavedPath { get; set; }

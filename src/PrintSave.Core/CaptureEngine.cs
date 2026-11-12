@@ -21,6 +21,7 @@ namespace PrintSave.Core
         private readonly Log _log;
         private readonly PrinterManager _printers = new PrinterManager();
         private readonly Organizer _organizer;
+        private readonly IDocumentConverter _converter;
         private readonly string _spoolDir;
 
         private readonly HashSet<string> _processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -32,10 +33,11 @@ namespace PrintSave.Core
 
         public event Action<PrintJobInfo> JobCaptured;
 
-        public CaptureEngine(CaptureOptions opt, Log log)
+        public CaptureEngine(CaptureOptions opt, Log log, IDocumentConverter converter = null)
         {
             _opt = opt;
             _log = log;
+            _converter = converter;
             _organizer = new Organizer(opt.RootDir);
             _spoolDir = ResolveSpoolDir();
         }
@@ -174,7 +176,7 @@ namespace PrintSave.Core
                     SpoolFilePath = spoolPath
                 };
 
-                _organizer.Save(info);
+                SaveJob(info);
                 _processed.Add(key);
                 _log.Info("Captured " + info + " -> " + info.SavedPath);
 
@@ -189,6 +191,41 @@ namespace PrintSave.Core
                 _log.Error(string.Format("Failed to capture job {0} on '{1}'", job.JobId, printer), ex);
                 _processed.Add(key); // don't spin forever on a bad job
             }
+        }
+
+        private void SaveJob(PrintJobInfo info)
+        {
+            FormatDetector.Result fmt = FormatDetector.Detect(info.SpoolFilePath);
+            info.Format = fmt.Name;
+
+            string savedPath = null;
+
+            if (_converter != null && _converter.CanConvert(fmt.Name))
+            {
+                string pdfPath = _organizer.BuildTargetPath(info, ".pdf");
+                if (_converter.TryConvertToPdf(info.SpoolFilePath, pdfPath, fmt.Name, out string convError))
+                {
+                    savedPath = pdfPath;
+                    info.Converted = true;
+                    info.SavedFormat = "PDF";
+                }
+                else
+                {
+                    _log.Warn(string.Format("Conversion of {0} job {1} failed ({2}); saving raw {0}.",
+                        fmt.Name, info.JobId, convError));
+                }
+            }
+
+            if (savedPath == null)
+            {
+                // No converter, unsupported format, or conversion failed: keep the raw spool so nothing is lost.
+                savedPath = _organizer.BuildTargetPath(info, fmt.Extension);
+                Organizer.CopyRaw(info.SpoolFilePath, savedPath);
+                info.SavedFormat = fmt.Name;
+            }
+
+            info.SavedPath = savedPath;
+            _organizer.WriteSidecar(info);
         }
 
         private void DeleteJob(IntPtr hPrinter, uint jobId, string printer)

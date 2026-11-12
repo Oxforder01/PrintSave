@@ -7,5 +7,6 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+    <ProjectReference Include="..\PrintSave.Conversion\PrintSave.Conversion.csproj" />
   </ItemGroup>
 </Project>

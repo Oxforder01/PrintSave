@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <OutputType>Library</OutputType>
+    <RootNamespace>PrintSave.Conversion</RootNamespace>
+    <AssemblyName>PrintSave.Conversion</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
+    <!-- MIT-licensed XPS->PDF converter (empira PDFsharp + kenjiuno/Hiraoka XPS lineage). -->
+    <PackageReference Include="kenjiuno.PdfSharp.Xps" Version="1.1.15" />
+  </ItemGroup>
+</Project>

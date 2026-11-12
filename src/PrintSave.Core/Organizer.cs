@@ -5,7 +5,7 @@ using System.Text;
 
 namespace PrintSave.Core
 {
-    /// <summary>Places a captured spool file into the year/month/day archive with a metadata sidecar.</summary>
+    /// <summary>Builds archive paths (year/month-in-words/day), copies raw spool data, and writes metadata sidecars.</summary>
     public sealed class Organizer
     {
         private readonly string _rootDir;
@@ -16,10 +16,10 @@ namespace PrintSave.Core
         }
 
         /// <summary>
-        /// Copies the job's spool file into {root}\yyyy\MM\dd\HHmmss_{doc}{ext} and writes a .json sidecar.
-        /// Sets job.SavedPath. Returns the saved file path.
+        /// Returns a unique path {root}\yyyy\MMMM\dd\HHmmss_{doc}{extension} and ensures the folder exists.
+        /// Does not write anything.
         /// </summary>
-        public string Save(PrintJobInfo job)
+        public string BuildTargetPath(PrintJobInfo job, string extension)
         {
             DateTime stamp = (job.SubmittedUtc ?? job.CapturedUtc).ToLocalTime();
 
@@ -30,18 +30,47 @@ namespace PrintSave.Core
                 stamp.ToString("dd", CultureInfo.InvariantCulture));
             Directory.CreateDirectory(dir);
 
-            var fmt = FormatDetector.Detect(job.SpoolFilePath);
-            job.Format = fmt.Name;
-
             string baseName = stamp.ToString("HHmmss", CultureInfo.InvariantCulture)
                               + "_" + Sanitize(StripKnownExtension(job.Document));
-            string dest = Resolve(dir, baseName, fmt.Extension);
+            return Resolve(dir, baseName, extension);
+        }
 
-            CopyShared(job.SpoolFilePath, dest);
-            job.SavedPath = dest;
+        /// <summary>Copies raw spool bytes to the destination (used when conversion is unavailable).</summary>
+        public static void CopyRaw(string src, string dst)
+        {
+            using (var inStream = new FileStream(src, FileMode.Open, FileAccess.Read,
+                       FileShare.ReadWrite | FileShare.Delete))
+            using (var outStream = new FileStream(dst, FileMode.Create, FileAccess.Write))
+            {
+                inStream.CopyTo(outStream, 65536);
+            }
+        }
 
-            WriteSidecar(job, Path.ChangeExtension(dest, ".json"));
-            return dest;
+        /// <summary>Writes a {savedPath}.json sidecar describing the job.</summary>
+        public void WriteSidecar(PrintJobInfo job)
+        {
+            if (string.IsNullOrEmpty(job.SavedPath)) return;
+            string jsonPath = Path.ChangeExtension(job.SavedPath, ".json");
+
+            var sb = new StringBuilder();
+            sb.Append("{\n");
+            Field(sb, "jobId", job.JobId.ToString(CultureInfo.InvariantCulture), false);
+            Field(sb, "document", job.Document, true);
+            Field(sb, "user", job.User, true);
+            Field(sb, "machine", job.Machine, true);
+            Field(sb, "printer", job.Printer, true);
+            Field(sb, "datatype", job.Datatype, true);
+            Field(sb, "sourceFormat", job.Format, true);
+            Field(sb, "savedFormat", job.SavedFormat, true);
+            Field(sb, "converted", job.Converted ? "true" : "false", false);
+            Field(sb, "totalPages", job.TotalPages.ToString(CultureInfo.InvariantCulture), false);
+            Field(sb, "submittedUtc", job.SubmittedUtc.HasValue
+                ? job.SubmittedUtc.Value.ToString("o", CultureInfo.InvariantCulture) : null, true);
+            Field(sb, "capturedUtc", job.CapturedUtc.ToString("o", CultureInfo.InvariantCulture), true);
+            Field(sb, "savedPath", job.SavedPath, true, last: true);
+            sb.Append("}\n");
+
+            File.WriteAllText(jsonPath, sb.ToString(), new UTF8Encoding(false));
         }
 
         private static string Resolve(string dir, string baseName, string ext)
@@ -53,7 +82,6 @@ namespace PrintSave.Core
                 candidate = Path.Combine(dir, baseName + "_" + i + ext);
                 if (!File.Exists(candidate)) return candidate;
             }
-            // Extremely unlikely fallback.
             return Path.Combine(dir, baseName + "_" + Guid.NewGuid().ToString("N") + ext);
         }
 
@@ -96,28 +124,6 @@ namespace PrintSave.Core
             return clean;
         }
 
-        private static void WriteSidecar(PrintJobInfo job, string jsonPath)
-        {
-            var sb = new StringBuilder();
-            sb.Append("{\n");
-            Field(sb, "jobId", job.JobId.ToString(CultureInfo.InvariantCulture), false);
-            Field(sb, "document", job.Document, true);
-            Field(sb, "user", job.User, true);
-            Field(sb, "machine", job.Machine, true);
-            Field(sb, "printer", job.Printer, true);
-            Field(sb, "datatype", job.Datatype, true);
-            Field(sb, "format", job.Format, true);
-            Field(sb, "totalPages", job.TotalPages.ToString(CultureInfo.InvariantCulture), false);
-            Field(sb, "submittedUtc", job.SubmittedUtc.HasValue
-                ? job.SubmittedUtc.Value.ToString("o", CultureInfo.InvariantCulture) : null, true);
-            Field(sb, "capturedUtc", job.CapturedUtc.ToString("o", CultureInfo.InvariantCulture), true);
-            Field(sb, "savedPath", job.SavedPath, true);
-            Field(sb, "statusFlags", job.Status.ToString(CultureInfo.InvariantCulture), false, last: true);
-            sb.Append("}\n");
-
-            File.WriteAllText(jsonPath, sb.ToString(), new UTF8Encoding(false));
-        }
-
         private static void Field(StringBuilder sb, string key, string value, bool quote, bool last = false)
         {
             sb.Append("  \"").Append(key).Append("\": ");
@@ -146,16 +152,6 @@ namespace PrintSave.Core
                 }
             }
             return sb.ToString();
-        }
-
-        private static void CopyShared(string src, string dst)
-        {
-            using (var inStream = new FileStream(src, FileMode.Open, FileAccess.Read,
-                       FileShare.ReadWrite | FileShare.Delete))
-            using (var outStream = new FileStream(dst, FileMode.Create, FileAccess.Write))
-            {
-                inStream.CopyTo(outStream, 65536);
-            }
         }
     }
 }

@@ -1,4 +1,5 @@
 <Solution>
   <Project Path="src/PrintSave.Core/PrintSave.Core.csproj" />
+  <Project Path="src/PrintSave.Conversion/PrintSave.Conversion.csproj" />
   <Project Path="src/PrintSave.ConsoleHost/PrintSave.ConsoleHost.csproj" />
 </Solution>

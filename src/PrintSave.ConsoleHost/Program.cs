@@ -43,12 +43,14 @@ namespace PrintSave.ConsoleHost
                 Console.ForegroundColor = prev;
             };
 
-            var engine = new CaptureEngine(opt, log);
+            var converter = new PrintSave.Conversion.XpsToPdfConverter();
+            var engine = new CaptureEngine(opt, log, converter);
             engine.JobCaptured += job =>
             {
                 ConsoleColor prev = Console.ForegroundColor;
                 Console.ForegroundColor = ConsoleColor.Green;
-                Console.WriteLine(">>> SAVED: " + job.SavedPath);
+                string note = job.Converted ? " (converted to PDF)" : " (" + job.SavedFormat + ", raw)";
+                Console.WriteLine(">>> SAVED: " + job.SavedPath + note);
                 Console.ForegroundColor = prev;
             };
 
