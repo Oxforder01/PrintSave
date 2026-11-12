@@ -25,6 +25,7 @@ namespace PrintSave.Core
         private readonly string _spoolDir;
 
         private readonly HashSet<string> _processed = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        private readonly ProcessedStore _processedStore;
         private readonly HashSet<string> _flagEnabledByUs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         private readonly HashSet<string> _knownPrinters = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
@@ -39,6 +40,7 @@ namespace PrintSave.Core
             _log = log;
             _converter = converter;
             _organizer = new Organizer(opt.RootDir);
+            _processedStore = new ProcessedStore(opt.RootDir);
             _spoolDir = ResolveSpoolDir();
         }
 
@@ -147,12 +149,26 @@ namespace PrintSave.Core
 
         private void HandleCompletedJob(IntPtr hPrinter, string printer, SpoolerNative.JOB_INFO_1 job, string key)
         {
+            PrintJobInfo info = BuildInfo(job, printer);
+            string fingerprint = Fingerprint(info);
+
+            // Already captured in an earlier run? Don't save a duplicate; just clear it from the queue.
+            if (_processedStore.Contains(fingerprint))
+            {
+                _log.Info(string.Format("Already captured job {0} (\"{1}\"); clearing from queue.",
+                    job.JobId, info.Document));
+                if (_opt.DeleteAfterCapture) DeleteJob(hPrinter, job.JobId, printer);
+                _processed.Add(key);
+                return;
+            }
+
             string spoolPath = SpoolPathFor(job.JobId);
+            info.SpoolFilePath = spoolPath;
             if (!File.Exists(spoolPath))
             {
                 // Printed, but no spool file to copy (RAW passthrough, or already cleaned). Skip once.
                 _log.Warn(string.Format("Job {0} on '{1}' (\"{2}\") has no spool file at {3}; skipping.",
-                    job.JobId, printer, job.pDocument, spoolPath));
+                    job.JobId, printer, info.Document, spoolPath));
                 _processed.Add(key);
                 return;
             }
@@ -161,22 +177,8 @@ namespace PrintSave.Core
             {
                 WaitUntilStable(spoolPath, TimeSpan.FromSeconds(15));
 
-                var info = new PrintJobInfo
-                {
-                    JobId = job.JobId,
-                    Printer = string.IsNullOrEmpty(job.pPrinterName) ? printer : job.pPrinterName,
-                    Machine = job.pMachineName,
-                    User = job.pUserName,
-                    Document = job.pDocument,
-                    Datatype = job.pDatatype,
-                    Status = job.Status,
-                    TotalPages = job.TotalPages,
-                    SubmittedUtc = ToUtc(job.Submitted),
-                    CapturedUtc = DateTime.UtcNow,
-                    SpoolFilePath = spoolPath
-                };
-
                 SaveJob(info);
+                _processedStore.Add(fingerprint);
                 _processed.Add(key);
                 _log.Info("Captured " + info + " -> " + info.SavedPath);
 
@@ -191,6 +193,32 @@ namespace PrintSave.Core
                 _log.Error(string.Format("Failed to capture job {0} on '{1}'", job.JobId, printer), ex);
                 _processed.Add(key); // don't spin forever on a bad job
             }
+        }
+
+        private static PrintJobInfo BuildInfo(SpoolerNative.JOB_INFO_1 job, string printer)
+        {
+            return new PrintJobInfo
+            {
+                JobId = job.JobId,
+                Printer = string.IsNullOrEmpty(job.pPrinterName) ? printer : job.pPrinterName,
+                Machine = job.pMachineName,
+                User = job.pUserName,
+                Document = job.pDocument,
+                Datatype = job.pDatatype,
+                Status = job.Status,
+                TotalPages = job.TotalPages,
+                SubmittedUtc = ToUtc(job.Submitted),
+                CapturedUtc = DateTime.UtcNow
+            };
+        }
+
+        // Stable across restarts/reboots: based on submit time + document + printer, not the volatile job id.
+        private static string Fingerprint(PrintJobInfo info)
+        {
+            string submitted = info.SubmittedUtc.HasValue
+                ? info.SubmittedUtc.Value.Ticks.ToString(CultureInfo.InvariantCulture)
+                : "job" + info.JobId;
+            return (info.Printer ?? "") + "|" + submitted + "|" + (info.Document ?? "") + "|" + info.TotalPages;
         }
 
         private void SaveJob(PrintJobInfo info)
@@ -233,7 +261,9 @@ namespace PrintSave.Core
         {
             try
             {
-                if (!SpoolerNative.SetJob(hPrinter, jobId, 0, IntPtr.Zero, SpoolerNative.JOB_CONTROL_DELETE))
+                if (SpoolerNative.SetJob(hPrinter, jobId, 0, IntPtr.Zero, SpoolerNative.JOB_CONTROL_DELETE))
+                    _log.Info(string.Format("Cleared job {0} from queue on '{1}'.", jobId, printer));
+                else
                     _log.Warn(string.Format("SetJob DELETE failed for job {0} on '{1}' (win32 {2})",
                         jobId, printer, Marshal.GetLastWin32Error()));
             }
