@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.ServiceProcess;
 using System.Windows.Forms;
@@ -12,6 +13,8 @@ namespace PrintSave.Tray
     internal sealed class TrayApp : ApplicationContext
     {
         private readonly NotifyIcon _tray;
+        private readonly Timer _diskTimer;
+        private bool _diskWarnShown;
         private SettingsForm _settings;
         private SearchForm _search;
 
@@ -28,6 +31,49 @@ namespace PrintSave.Tray
             _tray.ContextMenuStrip = menu;
             _tray.DoubleClick += (s, e) => OpenSearch();
             BuildMenu(menu);
+
+            // Independently watch free space so the tray can warn even if the service isn't running.
+            _diskTimer = new Timer { Interval = 5 * 60 * 1000 };
+            _diskTimer.Tick += (s, e) => CheckDiskBalloon();
+            _diskTimer.Start();
+            CheckDiskBalloon();
+        }
+
+        private static bool IsLowDisk(out double freeGB, out double thresholdGB)
+        {
+            freeGB = 0; thresholdGB = 0;
+            try
+            {
+                Config cfg = ConfigStore.Load();
+                thresholdGB = cfg.WarnFreeSpaceGB;
+                if (thresholdGB <= 0) return false;
+                double f;
+                if (!DiskSpace.TryGetFreeGB(cfg.RootDir, out f)) return false;
+                freeGB = f;
+                return f < thresholdGB;
+            }
+            catch { return false; }
+        }
+
+        private void CheckDiskBalloon()
+        {
+            double free, threshold;
+            if (IsLowDisk(out free, out threshold))
+            {
+                if (!_diskWarnShown)
+                {
+                    _diskWarnShown = true;
+                    _tray.ShowBalloonTip(8000, "PrintSave — low disk space",
+                        string.Format(CultureInfo.InvariantCulture,
+                            "Only {0:0.0} GB free on the archive drive. Documents are still being saved; free up space soon.",
+                            free),
+                        ToolTipIcon.Warning);
+                }
+            }
+            else
+            {
+                _diskWarnShown = false; // re-arm once space recovers
+            }
         }
 
         private static string RootDir()
@@ -45,6 +91,15 @@ namespace PrintSave.Tray
 
             string last = LastSaved();
             if (last != null) menu.Items.Add(new ToolStripMenuItem(last) { Enabled = false });
+
+            double free, threshold;
+            if (IsLowDisk(out free, out threshold))
+            {
+                var warn = new ToolStripMenuItem(
+                    string.Format(CultureInfo.InvariantCulture, "⚠ Low disk space: {0:0.0} GB free", free))
+                { Enabled = false, ForeColor = System.Drawing.Color.Firebrick };
+                menu.Items.Add(warn);
+            }
 
             menu.Items.Add(new ToolStripSeparator());
             menu.Items.Add("Search documents\u2026", null, (s, e) => OpenSearch());
@@ -123,10 +178,14 @@ namespace PrintSave.Tray
 
         protected override void Dispose(bool disposing)
         {
-            if (disposing && _tray != null)
+            if (disposing)
             {
-                _tray.Visible = false;
-                _tray.Dispose();
+                if (_diskTimer != null) _diskTimer.Dispose();
+                if (_tray != null)
+                {
+                    _tray.Visible = false;
+                    _tray.Dispose();
+                }
             }
             base.Dispose(disposing);
         }

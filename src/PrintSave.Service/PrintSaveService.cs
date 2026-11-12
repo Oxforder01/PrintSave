@@ -39,7 +39,8 @@ namespace PrintSave.Service
                     // A service keeps the keep-jobs flag set across restarts so nothing is missed;
                     // the uninstall step restores printer settings explicitly.
                     RestoreFlagsOnStop = false,
-                    WriteJsonSidecar = false
+                    WriteJsonSidecar = false,
+                    WarnFreeSpaceGB = cfg.WarnFreeSpaceGB
                 };
 
                 _log = new Log(Path.Combine(opt.RootDir, "logs"));
@@ -50,6 +51,11 @@ namespace PrintSave.Service
 
                 _engine = new CaptureEngine(opt, _log,
                     new CompositeConverter(new XpsToPdfConverter(), new EmfToPdfConverter()));
+                _engine.LowDiskSpace += (freeGB, threshold) => WriteEvent(string.Format(
+                    System.Globalization.CultureInfo.InvariantCulture,
+                    "Low disk space: {0:0.0} GB free on the archive drive (threshold {1:0.#} GB). " +
+                    "PrintSave keeps capturing, but free up space soon.", freeGB, threshold),
+                    EventLogEntryType.Warning);
                 OpenIndex(opt.RootDir);
                 _engine.Start();
                 WriteEvent("PrintSave started. Archive root: " + opt.RootDir, EventLogEntryType.Information);

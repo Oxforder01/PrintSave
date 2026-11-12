@@ -32,7 +32,13 @@ namespace PrintSave.Core
         private Thread _thread;
         private volatile bool _running;
 
+        private DateTime _lastDiskCheck = DateTime.MinValue;
+        private bool _lowDiskWarned;
+
         public event Action<PrintJobInfo> JobCaptured;
+
+        /// <summary>Raised when free space first drops below the warn threshold (freeGB, thresholdGB).</summary>
+        public event Action<double, double> LowDiskSpace;
 
         public CaptureEngine(CaptureOptions opt, Log log, IDocumentConverter converter = null)
         {
@@ -78,12 +84,48 @@ namespace PrintSave.Core
                         lastFlagPass = DateTime.UtcNow;
                     }
                     PollOnce();
+
+                    if ((DateTime.UtcNow - _lastDiskCheck).TotalSeconds >= _opt.CheckDiskEverySec)
+                    {
+                        CheckDiskSpace();
+                        _lastDiskCheck = DateTime.UtcNow;
+                    }
                 }
                 catch (Exception ex)
                 {
                     _log.Error("capture loop error", ex);
                 }
                 SleepInterruptible(_opt.PollIntervalMs);
+            }
+        }
+
+        // Warn once when the archive drive drops below the threshold; re-arm after it recovers
+        // (with hysteresis so a value hovering at the line doesn't warn repeatedly). Never deletes.
+        private void CheckDiskSpace()
+        {
+            double threshold = _opt.WarnFreeSpaceGB;
+            if (threshold <= 0) return;
+
+            double freeGB;
+            if (!DiskSpace.TryGetFreeGB(_opt.RootDir, out freeGB)) return;
+
+            if (freeGB < threshold)
+            {
+                if (!_lowDiskWarned)
+                {
+                    _lowDiskWarned = true;
+                    _log.Warn(string.Format(CultureInfo.InvariantCulture,
+                        "Low disk space: {0:0.0} GB free on the archive drive (warn threshold {1:0.#} GB). " +
+                        "Capturing continues; nothing is deleted.", freeGB, threshold));
+                    Action<double, double> h = LowDiskSpace;
+                    if (h != null) h(freeGB, threshold);
+                }
+            }
+            else if (_lowDiskWarned && freeGB >= threshold * 1.1)
+            {
+                _lowDiskWarned = false;
+                _log.Info(string.Format(CultureInfo.InvariantCulture,
+                    "Disk space recovered: {0:0.0} GB free on the archive drive.", freeGB));
             }
         }
 

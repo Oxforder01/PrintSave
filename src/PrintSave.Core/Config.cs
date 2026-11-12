@@ -17,5 +17,11 @@ namespace PrintSave.Core
 
         /// <summary>SID of the user granted access when the folder is secured (set when security is enabled).</summary>
         public string OwnerSid { get; set; } = null;
+
+        /// <summary>
+        /// Warn (log + Event Log + tray) when free space on the archive drive drops below this many GB.
+        /// Default 5. Set to 0 to disable the warning. Nothing is ever auto-deleted.
+        /// </summary>
+        public double WarnFreeSpaceGB { get; set; } = 5;
     }
 }

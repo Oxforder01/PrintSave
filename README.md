@@ -38,7 +38,10 @@ the tray UI and a one-click MSI installer all work.
    `PrintSave.Conversion`; a `CompositeConverter` dispatches by detected format. PostScript not
    done — it needs Ghostscript (AGPL), which conflicts with the clean/Store licensing goal, so
    it's deferred. EMF covers the common GDI-driver case; raw PCL remains save-as-spool.
-4. 🟡 **Resilience** — persistent dedupe, flag re-apply, logging done; disk-space warning not yet.
+4. ✅ **Resilience** — persistent dedupe, flag re-apply, logging, and a low-disk-space warning:
+   the service checks the archive drive every 5 min and, below the threshold, writes a warning
+   to the log and Event Log; the tray shows a balloon + a red menu line. Default 5 GB
+   (`WarnFreeSpaceGB` in `config.json`, 0 disables). Nothing is ever auto-deleted.
 5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
 6. ✅ **Tray + settings UI** — `PrintSave.Tray`: status menu, index search (open files), settings (folder-security toggle, start-at-sign-in).
 7. ✅ **Installer** — `installer\PrintSave.wxs` (WiX v5): one UAC prompt installs the service,

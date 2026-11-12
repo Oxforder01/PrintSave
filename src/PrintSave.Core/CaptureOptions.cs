@@ -25,5 +25,11 @@ namespace PrintSave.Core
         /// True for interactive/testing; a real service leaves the flag set so nothing is missed.
         /// </summary>
         public bool RestoreFlagsOnStop { get; set; } = true;
+
+        /// <summary>Warn when free space on the archive drive is below this many GB. 0 disables.</summary>
+        public double WarnFreeSpaceGB { get; set; } = 5;
+
+        /// <summary>How often to check free disk space (seconds).</summary>
+        public int CheckDiskEverySec { get; set; } = 300;
     }
 }
