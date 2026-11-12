@@ -225,7 +225,8 @@ namespace PrintSave.Core
             }
 
             info.SavedPath = savedPath;
-            _organizer.WriteSidecar(info);
+            if (_opt.WriteJsonSidecar)
+                _organizer.WriteSidecar(info);
         }
 
         private void DeleteJob(IntPtr hPrinter, uint jobId, string printer)

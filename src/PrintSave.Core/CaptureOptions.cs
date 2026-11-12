@@ -15,6 +15,12 @@ namespace PrintSave.Core
         public bool DeleteAfterCapture { get; set; } = true;
 
         /// <summary>
+        /// Write a per-file .json metadata sidecar next to each saved document.
+        /// Off by default to keep document folders clean; metadata lives in the index instead.
+        /// </summary>
+        public bool WriteJsonSidecar { get; set; } = false;
+
+        /// <summary>
         /// Restore each printer's keep-jobs flag to its original value when the engine stops.
         /// True for interactive/testing; a real service leaves the flag set so nothing is missed.
         /// </summary>
