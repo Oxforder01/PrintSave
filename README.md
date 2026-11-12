@@ -39,10 +39,16 @@ one-click MSI installer all work.
 5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
 6. ✅ **Tray + settings UI** — `PrintSave.Tray`: status menu, index search (open files), settings (folder-security toggle, start-at-sign-in).
 7. ✅ **Installer** — `installer\PrintSave.wxs` (WiX v5): one UAC prompt installs the service,
-   tray and console to `Program Files`, starts the service, adds a Start-menu shortcut, and
-   launches the tray with start-at-sign-in on. Clean uninstall stops/removes the service and
-   closes the tray; saved PDFs are left in place. Still to do: test matrix across Windows
+   tray and console to `Program Files`, starts the service, adds a Start-menu shortcut and an
+   all-users **Startup** shortcut (the tray appears at sign-in), and launches the tray right
+   away. Clean uninstall stops/removes the service, force-closes the tray and removes the
+   install folder; saved PDFs are left in place. Still to do: test matrix across Windows
    versions/printers.
+
+   The tray's autostart uses an all-users Startup shortcut rather than a per-user `Run`
+   registry value, because a per-machine installer writes `HKCU` to the wrong hive. The
+   Settings "start at sign-in" checkbox remains a per-user override. (Note: the service — which
+   does the actual capturing — autostarts independently and survives reboots regardless.)
 
 ## Installer
 

@@ -42,6 +42,8 @@
     <StandardDirectory Id="ProgramMenuFolder">
       <Directory Id="AppShortcutFolder" Name="PrintSave" />
     </StandardDirectory>
+    <!-- All-Users Startup folder (perMachine resolves this to the common startup). -->
+    <StandardDirectory Id="StartupFolder" />
 
     <!-- The Windows service: its own component so the exe is the service's key file. -->
     <ComponentGroup Id="ServiceGroup" Directory="INSTALLFOLDER">
@@ -104,18 +106,35 @@
       </Component>
     </ComponentGroup>
 
+    <!-- Start the tray at sign-in via an All-Users Startup shortcut. This is per-machine,
+         MSI-managed (installed and removed cleanly), and reliable for every user — unlike a
+         per-user HKCU Run value, which a per-machine install writes to the wrong hive. The
+         Settings "start at sign-in" checkbox remains a per-user override. -->
+    <ComponentGroup Id="Autostart" Directory="StartupFolder">
+      <Component Id="TrayStartupShortcut" Guid="*">
+        <Shortcut Id="TrayStartup"
+                  Name="PrintSave"
+                  Description="PrintSave tray"
+                  Target="[INSTALLFOLDER]PrintSave.Tray.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RegistryValue Root="HKMU" Key="Software\PrintSave" Name="autostart"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
     <Feature Id="Main" Title="PrintSave" Level="1">
       <ComponentGroupRef Id="ServiceGroup" />
       <ComponentGroupRef Id="AppFiles" />
       <ComponentGroupRef Id="Shortcuts" />
+      <ComponentGroupRef Id="Autostart" />
       <ComponentGroupRef Id="Cleanup" />
     </Feature>
 
-    <!-- Launch the tray once as the installing user, enabling start-at-sign-in
-         (writes the same HKCU Run value the Settings checkbox reads). -->
+    <!-- Launch the tray once so the user sees it right away. Start-at-sign-in is set by the
+         AutoStartRunKey component above, not here. -->
     <CustomAction Id="LaunchTray"
                   Directory="INSTALLFOLDER"
-                  ExeCommand="&quot;[INSTALLFOLDER]PrintSave.Tray.exe&quot; --enable-startup"
+                  ExeCommand="&quot;[INSTALLFOLDER]PrintSave.Tray.exe&quot;"
                   Execute="immediate"
                   Impersonate="yes"
                   Return="asyncNoWait" />
