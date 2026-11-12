@@ -19,7 +19,8 @@ namespace PrintSave.ConsoleHost
 
             var opt = new CaptureOptions();
             string search = null;
-            bool reindex = false, stats = false;
+            bool reindex = false, stats = false, showSettings = false;
+            string secure = null;
             for (int i = 0; i < args.Length; i++)
             {
                 if ((args[i] == "--root" || args[i] == "-r") && i + 1 < args.Length)
@@ -29,8 +30,12 @@ namespace PrintSave.ConsoleHost
                 else if (args[i] == "--list") search = "";
                 else if (args[i] == "--reindex") reindex = true;
                 else if (args[i] == "--stats") stats = true;
+                else if (args[i] == "--settings") showSettings = true;
+                else if (args[i] == "--secure" && i + 1 < args.Length) secure = args[++i];
             }
 
+            if (showSettings) return ShowSettings();
+            if (secure != null) return SetSecure(secure);
             if (search != null || reindex || stats)
                 return RunIndexCommand(opt.RootDir, search, reindex, stats);
 
@@ -144,6 +149,67 @@ namespace PrintSave.ConsoleHost
         {
             if (s == null) return "";
             return s.Length <= n ? s : s.Substring(0, n - 1) + "~";
+        }
+
+        private static int ShowSettings()
+        {
+            Config cfg = ConfigStore.Load();
+            Console.WriteLine("Settings file: " + ConfigStore.ConfigPath);
+            Console.WriteLine("  Archive root         : " + cfg.RootDir);
+            Console.WriteLine("  Folder security      : " + (cfg.SecureArchiveFolder ? "ON (locked to you + SYSTEM + Administrators)" : "off (easiest access - default)"));
+            Console.WriteLine("  Secured for owner SID: " + (cfg.OwnerSid ?? "-"));
+            Console.WriteLine();
+            Console.WriteLine("Change with:  --secure on    |    --secure off   (both require Administrator)");
+            return 0;
+        }
+
+        private static int SetSecure(string onoff)
+        {
+            bool on;
+            if (onoff.Equals("on", StringComparison.OrdinalIgnoreCase)) on = true;
+            else if (onoff.Equals("off", StringComparison.OrdinalIgnoreCase)) on = false;
+            else { Console.WriteLine("usage: --secure on|off"); return 2; }
+
+            if (!IsElevated())
+            {
+                Console.WriteLine("ERROR: changing folder security requires Administrator.");
+                Console.WriteLine("Run this from an elevated terminal.");
+                return 2;
+            }
+
+            Config cfg = ConfigStore.Load();
+            try
+            {
+                if (on)
+                {
+                    cfg.SecureArchiveFolder = true;
+                    cfg.OwnerSid = CurrentUserSid();
+                    ConfigStore.Save(cfg);
+                    FolderSecurity.Apply(cfg.RootDir, cfg.OwnerSid);
+                    Console.WriteLine("Folder security ON: " + cfg.RootDir);
+                    Console.WriteLine("Access is now limited to you, SYSTEM and Administrators.");
+                }
+                else
+                {
+                    cfg.SecureArchiveFolder = false;
+                    ConfigStore.Save(cfg);
+                    FolderSecurity.Relax(cfg.RootDir);
+                    Console.WriteLine("Folder security OFF (easiest access): " + cfg.RootDir);
+                }
+                Console.WriteLine("The service keeps this setting across restarts and reboots.");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine("Failed to change folder security: " + ex.Message);
+                return 1;
+            }
+        }
+
+        private static string CurrentUserSid()
+        {
+            using (WindowsIdentity id = WindowsIdentity.GetCurrent())
+                return id.User != null ? id.User.Value : null;
         }
 
         private static bool IsElevated()

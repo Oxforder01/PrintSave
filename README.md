@@ -54,6 +54,9 @@ PrintSave.ConsoleHost.exe --search "invoice smith"   # every word matches as a p
 PrintSave.ConsoleHost.exe --list                     # newest 50
 PrintSave.ConsoleHost.exe --reindex                  # rescan folders now
 PrintSave.ConsoleHost.exe --stats
+PrintSave.ConsoleHost.exe --settings                 # show settings (archive root, folder security)
+PrintSave.ConsoleHost.exe --secure on                # lock archive to you + SYSTEM + Admins (admin)
+PrintSave.ConsoleHost.exe --secure off               # restore easiest access (default) (admin)
 ```
 
 Add `--root <folder>` to point at a different archive.

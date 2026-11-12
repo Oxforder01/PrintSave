@@ -32,8 +32,10 @@ namespace PrintSave.Service
         {
             try
             {
+                Config cfg = ConfigStore.Load();
                 var opt = new CaptureOptions
                 {
+                    RootDir = cfg.RootDir,
                     // A service keeps the keep-jobs flag set across restarts so nothing is missed;
                     // the uninstall step restores printer settings explicitly.
                     RestoreFlagsOnStop = false,
@@ -43,6 +45,8 @@ namespace PrintSave.Service
                 _log = new Log(Path.Combine(opt.RootDir, "logs"));
                 SetupEventLog();
                 _log.OnMessage += OnLog;
+
+                EnforceFolderSecurity(cfg);
 
                 _engine = new CaptureEngine(opt, _log, new XpsToPdfConverter());
                 OpenIndex(opt.RootDir);
@@ -67,6 +71,25 @@ namespace PrintSave.Service
         protected override void OnShutdown()
         {
             OnStop();
+        }
+
+        // Applies the restrictive ACL when the user enabled folder security; leaves the folder
+        // untouched when it's off (default), so we never override the user's own permissions.
+        private void EnforceFolderSecurity(Config cfg)
+        {
+            try
+            {
+                Directory.CreateDirectory(cfg.RootDir);
+                if (cfg.SecureArchiveFolder)
+                {
+                    FolderSecurity.Apply(cfg.RootDir, cfg.OwnerSid);
+                    _log.Info("Archive folder secured (owner + SYSTEM + Administrators).");
+                }
+            }
+            catch (Exception ex)
+            {
+                _log.Error("Could not apply archive folder security", ex);
+            }
         }
 
         // The index is an add-on: if it can't open, capture still runs and the next start's

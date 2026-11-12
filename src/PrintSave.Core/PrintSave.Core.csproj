@@ -5,4 +5,8 @@
     <RootNamespace>PrintSave.Core</RootNamespace>
     <AssemblyName>PrintSave.Core</AssemblyName>
   </PropertyGroup>
+  <ItemGroup>
+    <!-- JavaScriptSerializer for the settings file. -->
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
 </Project>
