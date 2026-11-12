@@ -26,15 +26,18 @@ these formats _your_ printers actually produce**, because that decides most of t
 
 ## Status
 
-Capture, XPS→PDF conversion, the Windows service, the metadata index, the tray UI and a
-one-click MSI installer all work.
+Capture, PDF conversion (XPS vector + EMF raster), the Windows service, the metadata index,
+the tray UI and a one-click MSI installer all work.
 
 ## Build phases
 
 0. ✅ **Spike** — proved capture works and reported the spool format (HP ENVY → XPS).
 1. ✅ **Capture engine** — `PrintSave.Core`, date folders (`2026\November\12\`).
 2. ✅ **Metadata + SQLite index** — `PrintSave.Index`, `{root}\.state\index.db` (FTS5 search).
-3. 🟡 **Conversion to PDF** — XPS done (`PrintSave.Conversion`); EMF/PostScript not yet.
+3. 🟡 **Conversion to PDF** — XPS (vector, selectable text) and EMF (raster, 300 DPI) done in
+   `PrintSave.Conversion`; a `CompositeConverter` dispatches by detected format. PostScript not
+   done — it needs Ghostscript (AGPL), which conflicts with the clean/Store licensing goal, so
+   it's deferred. EMF covers the common GDI-driver case; raw PCL remains save-as-spool.
 4. 🟡 **Resilience** — persistent dedupe, flag re-apply, logging done; disk-space warning not yet.
 5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
 6. ✅ **Tray + settings UI** — `PrintSave.Tray`: status menu, index search (open files), settings (folder-security toggle, start-at-sign-in).

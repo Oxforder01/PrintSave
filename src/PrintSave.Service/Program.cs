@@ -34,7 +34,8 @@ namespace PrintSave.Service
             var log = new Log(Path.Combine(opt.RootDir, "logs"));
             log.OnMessage += (level, line) => Console.WriteLine(line);
 
-            var engine = new CaptureEngine(opt, log, new XpsToPdfConverter());
+            var engine = new CaptureEngine(opt, log,
+                new CompositeConverter(new XpsToPdfConverter(), new EmfToPdfConverter()));
             engine.Start();
             Console.WriteLine("PrintSave.Service running in console mode. Press Enter to stop.");
             Console.ReadLine();

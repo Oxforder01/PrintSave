@@ -48,7 +48,8 @@ namespace PrintSave.Service
 
                 EnforceFolderSecurity(cfg);
 
-                _engine = new CaptureEngine(opt, _log, new XpsToPdfConverter());
+                _engine = new CaptureEngine(opt, _log,
+                    new CompositeConverter(new XpsToPdfConverter(), new EmfToPdfConverter()));
                 OpenIndex(opt.RootDir);
                 _engine.Start();
                 WriteEvent("PrintSave started. Archive root: " + opt.RootDir, EventLogEntryType.Information);

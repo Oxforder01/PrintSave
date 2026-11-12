@@ -6,6 +6,10 @@
     <AssemblyName>PrintSave.Conversion</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
+    <!-- GDI+ (Metafile rendering) for the EMF->PDF path. -->
+    <Reference Include="System.Drawing" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\PrintSave.Core\PrintSave.Core.csproj" />
     <!-- MIT-licensed XPS->PDF converter (empira PDFsharp + kenjiuno/Hiraoka XPS lineage). -->
     <PackageReference Include="kenjiuno.PdfSharp.Xps" Version="1.1.15" />
