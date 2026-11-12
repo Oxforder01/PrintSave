@@ -61,7 +61,8 @@
                         ErrorControl="normal"
                         Account="LocalSystem"
                         Vital="yes">
-          <ServiceConfig DelayedAutoStart="yes" OnInstall="yes" OnReinstall="yes" />
+          <!-- Immediate auto-start (not delayed): capture must be live the moment Windows boots,
+               with no ~2-minute post-boot gap. Start="auto" above + no DelayedAutoStart. -->
           <util:ServiceConfig FirstFailureActionType="restart"
                               SecondFailureActionType="restart"
                               ThirdFailureActionType="restart"

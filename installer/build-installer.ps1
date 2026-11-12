@@ -10,7 +10,7 @@ $stage = Join-Path $repo 'artifacts\msi-stage'
 $out   = Join-Path $repo 'artifacts\PrintSave.msi'
 
 # Version flows into the MSI ProductVersion / upgrade logic.
-$version = '1.0.0'
+$version = '1.0.1'
 
 $projects = @(
     'src\PrintSave.Service\PrintSave.Service.csproj',

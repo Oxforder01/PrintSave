@@ -42,8 +42,8 @@ New-Service -Name $name -BinaryPathName ('"' + $exe + '"') `
     -Description 'Saves every printed document as a PDF, organized by date.' `
     -StartupType Automatic | Out-Null
 
-# Delayed auto-start + restart-on-failure recovery.
-sc.exe config  $name start= delayed-auto | Out-Null
+# Immediate auto-start (capture live from boot, no delayed-start gap) + restart-on-failure recovery.
+sc.exe config  $name start= auto | Out-Null
 sc.exe failure $name reset= 86400 actions= restart/5000/restart/5000/restart/5000 | Out-Null
 
 Start-Service $name
