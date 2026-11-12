@@ -15,6 +15,15 @@ namespace PrintSave.Tray
             if (args.Length >= 2 && args[0].Equals("--apply-security", StringComparison.OrdinalIgnoreCase))
                 return ApplySecurity(args[1]);
 
+            // Installer hands this flag to the first launch so "start at sign-in" is on by
+            // default, written to the same HKCU Run key the Settings checkbox reads.
+            for (int i = 0; i < args.Length; i++)
+                if (args[i].Equals("--enable-startup", StringComparison.OrdinalIgnoreCase))
+                {
+                    StartupManager.SetEnabled(true);
+                    break;
+                }
+
             bool created;
             using (var mutex = new Mutex(true, "PrintSave.Tray.SingleInstance", out created))
             {

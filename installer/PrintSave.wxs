@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Wix xmlns="http://wixtoolset.org/schemas/v4/wxs"
+     xmlns:util="http://wixtoolset.org/schemas/v4/wxs/util"
+     xmlns:ui="http://wixtoolset.org/schemas/v4/wxs/ui">
+
+  <Package Name="PrintSave"
+           Manufacturer="PrintSave"
+           Version="$(var.ProductVersion)"
+           UpgradeCode="7F3A2C14-9B6E-4D2A-A1C7-8E5B0F3D6A21"
+           Scope="perMachine"
+           Compressed="yes"
+           InstallerVersion="500">
+
+    <SummaryInformation Description="PrintSave — saves every printed document as a dated PDF" />
+
+    <!-- Replace any older build in place; block downgrades. -->
+    <MajorUpgrade DowngradeErrorMessage="A newer version of PrintSave is already installed." />
+    <MediaTemplate EmbedCab="yes" />
+
+    <!-- Close a running tray before an uninstall/upgrade touches its files. -->
+    <util:CloseApplication Id="CloseTray"
+                           Target="PrintSave.Tray.exe"
+                           CloseMessage="yes"
+                           RebootPrompt="no"
+                           EndSessionMessage="yes" />
+
+    <!-- Install locations. -->
+    <StandardDirectory Id="ProgramFiles64Folder">
+      <Directory Id="INSTALLFOLDER" Name="PrintSave" />
+    </StandardDirectory>
+    <StandardDirectory Id="ProgramMenuFolder">
+      <Directory Id="AppShortcutFolder" Name="PrintSave" />
+    </StandardDirectory>
+
+    <!-- The Windows service: its own component so the exe is the service's key file. -->
+    <ComponentGroup Id="ServiceGroup" Directory="INSTALLFOLDER">
+      <Component Id="ServiceExe" Guid="*">
+        <File Id="PrintSaveServiceExe"
+              Source="$(var.PublishDir)\PrintSave.Service.exe"
+              KeyPath="yes" />
+        <ServiceInstall Id="PrintSaveSvcInstall"
+                        Name="PrintSave"
+                        DisplayName="PrintSave"
+                        Description="Saves every printed document as a PDF, organized by date."
+                        Type="ownProcess"
+                        Start="auto"
+                        ErrorControl="normal"
+                        Account="LocalSystem"
+                        Vital="yes">
+          <ServiceConfig DelayedAutoStart="yes" OnInstall="yes" OnReinstall="yes" />
+          <util:ServiceConfig FirstFailureActionType="restart"
+                              SecondFailureActionType="restart"
+                              ThirdFailureActionType="restart"
+                              RestartServiceDelayInSeconds="5"
+                              ResetPeriodInDays="1" />
+        </ServiceInstall>
+        <ServiceControl Id="PrintSaveSvcControl"
+                        Name="PrintSave"
+                        Start="install"
+                        Stop="both"
+                        Remove="uninstall"
+                        Wait="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <!-- Everything else the publish produced: the tray, the console host and all shared DLLs. -->
+    <ComponentGroup Id="AppFiles" Directory="INSTALLFOLDER">
+      <Files Include="$(var.PublishDir)\**">
+        <Exclude Files="$(var.PublishDir)\PrintSave.Service.exe" />
+      </Files>
+    </ComponentGroup>
+
+    <!-- Start-menu shortcut to the tray. -->
+    <ComponentGroup Id="Shortcuts" Directory="AppShortcutFolder">
+      <Component Id="TrayShortcut" Guid="*">
+        <Shortcut Id="TrayStartMenu"
+                  Name="PrintSave"
+                  Description="Open the PrintSave tray"
+                  Target="[INSTALLFOLDER]PrintSave.Tray.exe"
+                  WorkingDirectory="INSTALLFOLDER" />
+        <RemoveFolder Id="RemoveAppShortcutFolder" On="uninstall" />
+        <RegistryValue Root="HKMU" Key="Software\PrintSave" Name="installed"
+                       Type="integer" Value="1" KeyPath="yes" />
+      </Component>
+    </ComponentGroup>
+
+    <Feature Id="Main" Title="PrintSave" Level="1">
+      <ComponentGroupRef Id="ServiceGroup" />
+      <ComponentGroupRef Id="AppFiles" />
+      <ComponentGroupRef Id="Shortcuts" />
+    </Feature>
+
+    <!-- Launch the tray once as the installing user, enabling start-at-sign-in
+         (writes the same HKCU Run value the Settings checkbox reads). -->
+    <CustomAction Id="LaunchTray"
+                  Directory="INSTALLFOLDER"
+                  ExeCommand="&quot;[INSTALLFOLDER]PrintSave.Tray.exe&quot; --enable-startup"
+                  Execute="immediate"
+                  Impersonate="yes"
+                  Return="asyncNoWait" />
+    <InstallExecuteSequence>
+      <Custom Action="LaunchTray" After="InstallFinalize" Condition="NOT Installed" />
+    </InstallExecuteSequence>
+
+    <!-- Minimal wizard: welcome + license + progress + finish. -->
+    <ui:WixUI Id="WixUI_Minimal" />
+    <WixVariable Id="WixUILicenseRtf" Value="License.rtf" />
+
+  </Package>
+</Wix>

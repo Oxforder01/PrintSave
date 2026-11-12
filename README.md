@@ -26,8 +26,8 @@ these formats _your_ printers actually produce**, because that decides most of t
 
 ## Status
 
-Capture, XPS→PDF conversion, the Windows service, the metadata index and the tray UI all work.
-Next up: the MSI installer.
+Capture, XPS→PDF conversion, the Windows service, the metadata index, the tray UI and a
+one-click MSI installer all work.
 
 ## Build phases
 
@@ -38,7 +38,27 @@ Next up: the MSI installer.
 4. 🟡 **Resilience** — persistent dedupe, flag re-apply, logging done; disk-space warning not yet.
 5. ✅ **Service** — `PrintSave.Service` (LocalSystem, auto-start, recovery, Event Log).
 6. ✅ **Tray + settings UI** — `PrintSave.Tray`: status menu, index search (open files), settings (folder-security toggle, start-at-sign-in).
-7. ⬜ Installer (one UAC prompt), clean uninstall; test matrix across Windows versions/printers.
+7. ✅ **Installer** — `installer\PrintSave.wxs` (WiX v5): one UAC prompt installs the service,
+   tray and console to `Program Files`, starts the service, adds a Start-menu shortcut, and
+   launches the tray with start-at-sign-in on. Clean uninstall stops/removes the service and
+   closes the tray; saved PDFs are left in place. Still to do: test matrix across Windows
+   versions/printers.
+
+## Installer
+
+Build `artifacts\PrintSave.msi` (no elevation needed to build):
+
+```
+powershell -ExecutionPolicy Bypass -File installer\build-installer.ps1
+```
+
+It publishes the three executables into one staging folder and compiles the WiX package.
+Needs the WiX **v5** global tool (`dotnet tool install --global wix --version 5.0.2`); the
+script adds the Util + UI extensions itself. WiX v7 is avoided on purpose — it is gated behind
+a paid maintenance-fee EULA, while v5 stays MS-RL / free and Store-friendly.
+
+Then double-click `PrintSave.msi` (one UAC prompt) to install, or
+`Settings > Apps` / `msiexec /x PrintSave.msi` to remove.
 
 ## Index
 
